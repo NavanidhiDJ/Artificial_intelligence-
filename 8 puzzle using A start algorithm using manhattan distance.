@@ -1,0 +1,83 @@
+import heapq
+
+def manhattan_distance(state, goal):
+    distance = 0
+    for num in range(1, 9):
+        x1, y1 = divmod(state.index(num), 3)
+        x2, y2 = divmod(goal.index(num), 3)
+        distance += abs(x1 - x2) + abs(y1 - y2)
+    return distance
+
+def get_neighbors(state):
+    neighbors = []
+    zero_pos = state.index(0)
+    x, y = divmod(zero_pos, 3)
+    directions = [(-1,0), (1,0), (0,-1), (0,1)]  
+    
+    for dx, dy in directions:
+        nx, ny = x + dx, y + dy
+        if 0 <= nx < 3 and 0 <= ny < 3:
+            new_pos = nx * 3 + ny
+            new_state = list(state)
+            new_state[zero_pos], new_state[new_pos] = new_state[new_pos], new_state[zero_pos]
+            neighbors.append(tuple(new_state))
+    return neighbors
+
+def a_star(start, goal):
+    open_set = []
+    heapq.heappush(open_set, (0 + manhattan_distance(start, goal), 0, start, []))
+    closed_set = set()
+    
+    while open_set:
+        f, g, current, path = heapq.heappop(open_set)
+        
+        if current == goal:
+            return path + [current]
+        
+        if current in closed_set:
+            continue
+        closed_set.add(current)
+        
+        for neighbor in get_neighbors(current):
+            if neighbor in closed_set:
+                continue
+            new_g = g + 1
+            new_f = new_g + manhattan_distance(neighbor, goal)
+            heapq.heappush(open_set, (new_f, new_g, neighbor, path + [current]))
+    
+    return None
+
+def print_puzzle(state):
+    for i in range(0, 9, 3):
+        print(state[i:i+3])
+    print()
+
+def input_state(prompt):
+    while True:
+        try:
+            s = input(prompt)
+            lst = tuple(int(x) for x in s.strip().split())
+            if len(lst) != 9 or set(lst) != set(range(9)):
+                raise ValueError
+            return lst
+        except ValueError:
+            print("Invalid input! Please enter 9 numbers from 0 to 8 separated by spaces, no repeats.")
+
+def main():
+    print("Enter the start state (0 represents the blank):")
+    start = input_state("Start state: ")
+    print("Enter the goal state (0 represents the blank):")
+    goal = input_state("Goal state: ")
+    
+    print("\nSolving...")
+    path = a_star(start, goal)
+    
+    if path is None:
+        print("No solution found.")
+    else:
+        print(f"Solution found in {len(path) - 1} moves:")
+        for step in path:
+            print_puzzle(step)
+
+if __name__ == "__main__":
+    main()
