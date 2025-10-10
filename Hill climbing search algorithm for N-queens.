@@ -1,0 +1,97 @@
+import random
+
+def heuristic(state):
+    h = 0
+    n = len(state)
+    for i in range(n):
+        for j in range(i + 1, n):
+            if state[i] == state[j] or abs(state[i] - state[j]) == abs(i - j):
+                h += 1
+    return h
+
+def get_neighbors(state):
+    neighbors = []
+    n = len(state)
+    for col in range(n):
+        for row in range(n):
+            if state[col] != row:
+                neighbor = list(state)
+                neighbor[col] = row
+                neighbors.append(neighbor)
+    return neighbors
+
+def hill_climbing(initial_state):
+    current = list(initial_state)
+    current_h = heuristic(current)
+    
+    while True:
+        neighbors = get_neighbors(current)
+        neighbor_h = [(heuristic(neighbor), neighbor) for neighbor in neighbors]
+        
+        neighbor_h.sort(key=lambda x: x[0])
+        best_h, best_neighbor = neighbor_h[0]
+        
+        if best_h >= current_h:
+            break  # No improvement
+        
+        current, current_h = best_neighbor, best_h
+    
+    return current, current_h
+
+def random_restart_hill_climbing(initial_state, max_restarts=1000):
+    n = len(initial_state)
+    current_state = list(initial_state)
+    
+    for restart in range(max_restarts):
+        solution, h = hill_climbing(current_state)
+        if h == 0:
+            return solution, h, restart
+
+        current_state = [random.randint(0, n - 1) for _ in range(n)]
+    return solution, h, max_restarts
+
+def print_board(state):
+    n = len(state)
+    for row in range(n):
+        line = ""
+        for col in range(n):
+            line += " Q " if state[col] == row else " . "
+        print(line)
+    print()
+
+if __name__ == "__main__":
+    while True:
+        try:
+            N = int(input("Enter the number of queens (N): "))
+            if N > 3:
+                break
+            else:
+                print("N must be at least 4.")
+        except ValueError:
+            print("Invalid input. Please enter an integer.")
+
+    print(f"Enter the initial row positions for each of the {N} columns (0 to {N-1}):")
+    initial_state = []
+    for col in range(N):
+        while True:
+            try:
+                row = int(input(f"Column {col}: "))
+                if 0 <= row < N:
+                    initial_state.append(row)
+                    break
+                else:
+                    print(f"Please enter a number between 0 and {N-1}.")
+            except ValueError:
+                print("Invalid input. Enter an integer.")
+
+    print("\nInitial board:")
+    print_board(initial_state)
+
+    solution, h, restarts = random_restart_hill_climbing(initial_state, max_restarts=1000)
+
+    if h == 0:
+        print(f"Solution found after {restarts} restarts:")
+        print_board(solution)
+    else:
+        print(f"No solution found after {restarts} restarts. Local optimum with heuristic {h}:")
+        print_board(solution)
