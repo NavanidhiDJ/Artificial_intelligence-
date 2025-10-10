@@ -1,0 +1,84 @@
+from collections import deque
+
+# Define the goal state
+GOAL_STATE = ((1, 2, 3),
+              (4, 5, 6),
+              (7, 8, 0))
+
+# Moves (up, down, left, right)
+MOVES = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+
+def find_blank(state):
+    for i in range(3):
+        for j in range(3):
+            if state[i][j] == 0:
+                return i, j
+    return None
+
+
+def swap_positions(state, pos1, pos2):
+    state_list = [list(row) for row in state]
+    x1, y1 = pos1
+    x2, y2 = pos2
+    state_list[x1][y1], state_list[x2][y2] = state_list[x2][y2], state_list[x1][y1]
+    return tuple(tuple(row) for row in state_list)
+
+
+def get_neighbors(state):
+    neighbors = []
+    x, y = find_blank(state)
+    for dx, dy in MOVES:
+        nx, ny = x + dx, y + dy
+        if 0 <= nx < 3 and 0 <= ny < 3:
+            new_state = swap_positions(state, (x, y), (nx, ny))
+            neighbors.append(new_state)
+    return neighbors
+
+
+def depth_limited_search(state, goal, limit, path, visited):
+    if state == goal:
+        return path
+    if limit <= 0:
+        return None
+
+    visited.add(state)
+
+    for neighbor in get_neighbors(state):
+        if neighbor not in visited:
+            result = depth_limited_search(neighbor, goal, limit - 1, path + [neighbor], visited)
+            if result is not None:
+                return result
+
+    visited.remove(state)
+    return None
+
+
+def iterative_deepening_search(start, goal):
+    depth = 0
+    while True:
+        visited = set()
+        print(f"Searching at depth: {depth}")
+        result = depth_limited_search(start, goal, depth, [start], visited)
+        if result is not None:
+            return result
+        depth += 1
+
+
+def print_state(state):
+    for row in state:
+        print(' '.join(str(x) if x != 0 else ' ' for x in row))
+    print()
+
+
+if __name__ == "__main__":
+    # Example start state
+    start_state = ((1, 2, 3),
+                   (4, 0, 6),
+                   (7, 5, 8))
+
+    solution_path = iterative_deepening_search(start_state, GOAL_STATE)
+
+    print(f"Solution found in {len(solution_path) - 1} moves:\n")
+    for step in solution_path:
+        print_state(step)
