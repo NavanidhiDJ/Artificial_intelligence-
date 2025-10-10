@@ -1,0 +1,31 @@
+class VacuumCleanerAgent:
+    def __init__(self):
+        self.location = 'A'
+
+    def perceive_and_act(self, environment):
+        current_status = environment[self.location]
+        
+        if current_status == 'Dirty':
+            action = 'Suck'
+            environment[self.location] = 'Clean'  
+        else:
+            action = 'Move Right' if self.location == 'A' else 'Move Left'
+            self.location = 'B' if self.location == 'A' else 'A'
+        
+        return action
+
+def run_vacuum_agent(environment):
+    agent = VacuumCleanerAgent()
+    steps = 0
+    
+    print(f"Initial environment: {environment}")
+    while 'Dirty' in environment.values():
+        action = agent.perceive_and_act(environment)
+        print(f"Step {steps}: Agent at {agent.location}, Action: {action}, Environment: {environment}")
+        steps += 1
+    
+    print("Environment is clean!")
+
+if __name__ == "__main__":
+    env = {'A': 'Dirty', 'B': 'Dirty'}
+    run_vacuum_agent(env)
