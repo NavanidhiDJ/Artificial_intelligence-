@@ -1,0 +1,115 @@
+import re
+
+def parse_predicate(pred):
+    pred = pred.strip()
+    if "(" not in pred:
+        # Treat constant symbols or atomic facts with no arguments
+        return pred, []
+    name, args = pred.split("(", 1)
+    args = args.strip(")").split(",")
+    return name.strip(), [a.strip() for a in args] 
+
+def is_variable(x):
+    return x[0].islower()  # lowercase = variable
+
+def unify(x, y, theta=None):
+    if theta is None:
+        theta = {}
+    if x == y:
+        return theta
+    if is_variable(x):
+        return unify_var(x, y, theta)
+    if is_variable(y):
+        return unify_var(y, x, theta)
+    if isinstance(x, tuple) and isinstance(y, tuple):
+        if x[0] != y[0] or len(x[1]) != len(y[1]):
+            return None
+        for a, b in zip(x[1], y[1]):
+            theta = unify(a, b, theta)
+            if theta is None:
+                return None
+        return theta
+    return None
+
+def unify_var(var, x, theta):
+    if var in theta:
+        return unify(theta[var], x, theta)
+    if x in theta:
+        return unify(var, theta[x], theta)
+    if occurs_check(var, x, theta):
+        return None
+    theta[var] = x
+    return theta
+
+def occurs_check(var, x, theta):
+    if var == x:
+        return True
+    if isinstance(x, tuple):
+        return any(occurs_check(var, arg, theta) for arg in x[1])
+    if x in theta:
+        return occurs_check(var, theta[x], theta)
+    return False
+
+def substitute(pred, theta):
+    name, args = pred
+    new_args = [theta.get(a, a) for a in args]
+    return (name, new_args)
+
+def parse_clause(clause):
+    if "=>" in clause:
+        premises, conclusion = clause.split("=>")
+        premises = [parse_predicate(p.strip()) for p in premises.split("&")]
+        conclusion = parse_predicate(conclusion.strip())
+    else:
+        premises = []
+        conclusion = parse_predicate(clause.strip())
+    return premises, conclusion
+
+def forward_chaining(kb, facts, query):
+    query = parse_predicate(query)
+    known_facts = [parse_predicate(f) for f in facts]
+    added = True
+    while added:
+        added = False
+        for premises, conclusion in kb:
+            possible_subs = [{}]
+            for prem in premises:
+                new_subs = []
+                for f in known_facts:
+                    theta = unify(prem, f)
+                    if theta is not None:
+                        for ps in possible_subs:
+                            merged = {**ps, **theta}
+                            new_subs.append(merged)
+                possible_subs = new_subs
+            for s in possible_subs:
+                new_fact = substitute(conclusion, s)
+                if new_fact not in known_facts:
+                    known_facts.append(new_fact)
+                    added = True
+                    if unify(new_fact, query) is not None:
+                        return True
+    return False
+
+n = int(input("Enter number of rules in Knowledge Base:\n"))
+kb = []
+print("\nEnter rules (use format: A & B => C or single fact):")
+for _ in range(n):
+    clause = input().strip()
+    kb.append(parse_clause(clause))
+
+# Fix: Use re.findall to correctly parse facts that might contain commas in arguments
+facts_input_string = input("\nEnter initial known facts (comma separated):\n").strip()
+facts = re.findall(r'[A-Za-z_]+\(.*?\)', facts_input_string)
+query = input("\nEnter query to prove:\n").strip()
+
+result = forward_chaining(kb, facts, query)
+
+print("\n---------------------------")
+print("Knowledge Base:")
+for p, c in kb:
+    print(f"{' & '.join([f'{x[0]}({','.join(x[1])})' for x in p])} => {c[0]}({','.join(c[1])})" if p else f"{c[0]}({','.join(c[1])})")
+print("\nInitial Facts:", facts)
+print("Query:", query)
+print("---------------------------")
+print("Query can be proven!" if result else "Query cannot be proven.")
