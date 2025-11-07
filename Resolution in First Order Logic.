@@ -1,0 +1,93 @@
+import re
+
+def standardize_variables(clause, index):
+    vars_in_clause = re.findall(r'[a-z]\w*', clause)
+    for v in vars_in_clause:
+        clause = re.sub(r'\b' + v + r'\b', v + str(index), clause)
+    return clause
+
+def negate_literal(literal):
+    if literal.startswith('~'):
+        return literal[1:]
+    else:
+        return '~' + literal
+
+def parse_clause(clause):
+    return [lit.strip() for lit in clause.split('|')]
+
+def unify(x, y, subs):
+    if subs is None:
+        return None
+    elif x == y:
+        return subs
+    elif isinstance(x, str) and x[0].islower():
+        return unify_var(x, y, subs)
+    elif isinstance(y, str) and y[0].islower():
+        return unify_var(y, x, subs)
+    elif '(' in x and '(' in y:
+        fx, argsx = x.split('(', 1)
+        fy, argsy = y.split('(', 1)
+        if fx != fy:
+            return None
+        argsx = argsx[:-1].split(',')
+        argsy = argsy[:-1].split(',')
+        for a, b in zip(argsx, argsy):
+            subs = unify(a.strip(), b.strip(), subs)
+        return subs
+    else:
+        return None
+
+def unify_var(var, x, subs):
+    if var in subs:
+        return unify(subs[var], x, subs)
+    elif x in subs:
+        return unify(var, subs[x], subs)
+    else:
+        subs[var] = x
+        return subs
+
+def apply_subs(literal, subs):
+    for var, val in subs.items():
+        literal = re.sub(r'\b' + var + r'\b', val, literal)
+    return literal
+
+def resolve(ci, cj):
+    for di in ci:
+        for dj in cj:
+            if di == negate_literal(dj):
+                new_clause = list(set(ci + cj))
+                new_clause.remove(di)
+                new_clause.remove(dj)
+                return new_clause
+    return None
+
+n = int(input("Enter number of clauses in KB: "))
+kb = []
+for i in range(n):
+    kb.append(standardize_variables(input(f"Clause {i+1}: ").strip(), i))
+
+query = input("Enter query: ").strip()
+negated_query = negate_literal(query)
+kb.append(negated_query)
+
+new = set()
+resolved = False
+
+while True:
+    pairs = [(kb[i], kb[j]) for i in range(len(kb)) for j in range(i + 1, len(kb))]
+    for (ci, cj) in pairs:
+        resolvent = resolve(parse_clause(ci), parse_clause(cj))
+        if resolvent == []:
+            resolved = True
+            break
+        if resolvent:
+            new.add(' | '.join(resolvent))
+    if resolved:
+        print("\nQuery can be proven by resolution.")
+        break
+    if new.issubset(set(kb)):
+        print("\nQuery can be proven.")
+        break
+    for c in new:
+        if c not in kb:
+            kb.append(c)
