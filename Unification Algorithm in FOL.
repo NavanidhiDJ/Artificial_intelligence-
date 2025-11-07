@@ -1,0 +1,113 @@
+from dataclasses import dataclass
+from typing import Tuple, Dict, Union, List, Optional
+
+@dataclass(frozen=True)
+class Var:
+    name: str
+    def __repr__(self):
+        return self.name
+
+@dataclass(frozen=True)
+class Func:
+    name: str
+    args: Tuple['Term', ...]
+    def __repr__(self):
+        if not self.args:
+            return self.name
+        return f"{self.name}({', '.join(map(str, self.args))})"
+
+Term = Union[Var, Func]
+Subst = Dict[Var, Term]
+
+def is_variable(t: Term) -> bool:
+    return isinstance(t, Var)
+
+def apply_subst(subst: Subst, term: Term) -> Term:
+    if is_variable(term):
+        while term in subst:
+            term = subst[term]
+        return term
+    return Func(term.name, tuple(apply_subst(subst, a) for a in term.args))
+
+def occurs_in(var: Var, term: Term, subst: Subst) -> bool:
+    term = apply_subst(subst, term)
+    if term == var:
+        return True
+    if isinstance(term, Func):
+        return any(occurs_in(var, a, subst) for a in term.args)
+    return False
+
+class UnificationFailure(Exception):
+    pass
+
+def unify_var(var: Var, x: Term, subst: Subst) -> Subst:
+    x = apply_subst(subst, x)
+    if var == x:
+        return subst
+    if occurs_in(var, x, subst):
+        raise UnificationFailure(f"Occurs-check failed: {var} occurs in {x}")
+    new_subst = {v: apply_subst({var: x}, t) for v, t in subst.items()}
+    new_subst[var] = x
+    return new_subst
+
+def unify(t1: Term, t2: Term, subst: Optional[Subst] = None) -> Subst:
+    if subst is None:
+        subst = {}
+    t1 = apply_subst(subst, t1)
+    t2 = apply_subst(subst, t2)
+    if t1 == t2:
+        return subst
+    if is_variable(t1):
+        return unify_var(t1, t2, subst)
+    if is_variable(t2):
+        return unify_var(t2, t1, subst)
+    if isinstance(t1, Func) and isinstance(t2, Func):
+        if t1.name != t2.name or len(t1.args) != len(t2.args):
+            raise UnificationFailure(f"Function symbol or arity mismatch: {t1} vs {t2}")
+        for a1, a2 in zip(t1.args, t2.args):
+            subst = unify(a1, a2, subst)
+        return subst
+    raise UnificationFailure(f"Cannot unify {t1} and {t2}")
+
+def parse_term(s: str) -> Term:
+    s = s.strip()
+    if '(' not in s:
+        if s[0].islower():
+            return Func(s, ())
+        else:
+            return Var(s)
+    name, rest = s.split('(', 1)
+    rest = rest[:-1]
+    args = split_args(rest)
+    return Func(name, tuple(parse_term(arg) for arg in args))
+
+def split_args(s: str) -> List[str]:
+    args, depth, current = [], 0, ''
+    for c in s:
+        if c == ',' and depth == 0:
+            args.append(current.strip())
+            current = ''
+        else:
+            if c == '(':
+                depth += 1
+            elif c == ')':
+                depth -= 1
+            current += c
+    if current:
+        args.append(current.strip())
+    return args
+
+if __name__ == "__main__":
+    expr1 = input("Enter first term: ").strip()
+    expr2 = input("Enter second term: ").strip()
+    try:
+        t1 = parse_term(expr1)
+        t2 = parse_term(expr2)
+        sigma = unify(t1, t2)
+        print("Unifier:", {str(k): str(v) for k, v in sigma.items()})
+        print("σ(t1) =", apply_subst(sigma, t1))
+        print("σ(t2) =", apply_subst(sigma, t2))
+    except UnificationFailure as e:
+        print("Unification failed:", e)
+    except Exception as e:
+        print("Error:", e)
